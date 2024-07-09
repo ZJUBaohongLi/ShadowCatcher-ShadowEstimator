@@ -271,7 +271,7 @@ def train_nn_generator(model, estimator, dataloader, val_dataloader):
                     loss_s_sum += loss_s
                     z = model(x)
                     zus = model(xus)
-                    y_hat, _, _ = estimator(t, torch.cat((torch.rand(x.size()).to(device), z), 1))
+                    y_hat, _, _ = estimator(t, torch.cat((x, z), 1))
                     y_minus, _, _ = estimator(t, torch.cat((x, torch.rand(z.size()).to(device)), 1))
                     loss_y = torch.mean(mse_func(y.float(), y_hat)) + torch.mean(
                         -mse_func(y.float(), y_minus))

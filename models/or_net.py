@@ -18,11 +18,13 @@ class ORNet(nn.Module):
             ) for i in range(layer_num)
         ])
         self.output_layer = nn.Linear(dim_out, dim_latent)
+        self.output_label_layer = nn.Softplus()
 
     def forward(self, x):
         x_rep = x.to(torch.float32)
         for layer in self.mlp:
             x_rep = layer(x_rep)
         label = self.output_layer(x_rep)
+        label = self.output_label_layer(label)
         return label
 
