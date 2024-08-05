@@ -332,7 +332,7 @@ def train_nn_generator(model, estimator, dataloader, val_dataloader):
                     loss_q = torch.sqrt(loss_q * loss_q)
                     loss_q_sum += loss_q
             writer.add_scalar('Q Val loss', loss_q_sum, epoch)
-            if loss_q_sum / index <= threshold:
+            if loss_q_sum / (index + 1) <= threshold:
                 rej_flag = False
                 break
         if rej_flag is False:
@@ -427,7 +427,7 @@ def predict_or_tilde(z_net, z_net_us, data):
         data = data.to(device)
         gen_zs = z_net(data)
         gen_zus = z_net_us(data)
-        or_tilde = gen_zs / gen_zus
+        or_tilde = gen_zs / (gen_zus + 1e-4)
         or_tilde = torch.mean(or_tilde, dim=1).detach().cpu().numpy()
     return or_tilde.reshape(-1, 1)
 
@@ -480,7 +480,7 @@ def predict_or_hat(or_net, t, x, y):
         y = y.to(device)
         gen_or_tilde = or_net(torch.cat((t, x, y), 1))
         gen_or_tilde0 = or_net(torch.cat((t, x, torch.zeros(y.shape, dtype=torch.float32).to(device)), 1))
-        or_hat = gen_or_tilde / gen_or_tilde0
+        or_hat = gen_or_tilde / (gen_or_tilde0 + 1e-4)
         or_hat = or_hat.detach().cpu().numpy()
     return or_hat.reshape(-1, 1)
 
@@ -490,7 +490,7 @@ def train_selection_net(selection_net, train_dataloader, val_dataloader):
     lr = config.get('selectionnet_lr')
     wd = config.get('selectionnet_wd')
     opt = torch.optim.Adam(selection_net.parameters(), lr=lr, weight_decay=wd)
-    mse_func = nn.MSELoss(reduction='sum')
+    bce_func = nn.BCELoss(reduction='sum')
     writer = SummaryWriter()
     for epoch in range(epochs):
         selection_net.train()
@@ -502,7 +502,7 @@ def train_selection_net(selection_net, train_dataloader, val_dataloader):
             z = z.to(device)
             s = s.to(device)
             s_hat = selection_net(torch.cat((t, x, z), 1))
-            loss = torch.mean(mse_func(s.float(), s_hat))
+            loss = torch.mean(bce_func(s_hat, s.float()))
             opt.zero_grad()
             loss.backward()
             opt.step()
@@ -518,7 +518,7 @@ def train_selection_net(selection_net, train_dataloader, val_dataloader):
                 z = z.to(device)
                 s = s.to(device)
                 s_hat = selection_net(torch.cat((t, x, z), 1))
-                loss = torch.mean(mse_func(s.float(), s_hat))
+                loss = torch.mean(bce_func(s_hat, s.float()))
                 loss_sum += loss
         writer.add_scalar('SelectionNet Val loss', loss_sum, epoch)
     writer.close()
@@ -682,9 +682,9 @@ for i in range(config.get('experiment_num')):
     obs_mean_or_val = predict_or_hat(or_net, torch.tensor(obs_t_val, dtype=torch.float32),
                                      torch.tensor(obs_x_val, dtype=torch.float32),
                                      torch.tensor(obs_y_hat_val, dtype=torch.float32))
-    obs_unselected_y_hat_train = obs_or_hat_train * obs_y_hat_train / obs_mean_or_train
-    obs_unselected_y_hat_test = obs_or_hat_test * obs_y_hat_test / obs_mean_or_test
-    obs_unselected_y_hat_val = obs_or_hat_val * obs_y_hat_val / obs_mean_or_val
+    obs_unselected_y_hat_train = obs_or_hat_train * obs_y_hat_train / (obs_mean_or_train + 1e-4)
+    obs_unselected_y_hat_test = obs_or_hat_test * obs_y_hat_test / (obs_mean_or_test + 1e-4)
+    obs_unselected_y_hat_val = obs_or_hat_val * obs_y_hat_val / (obs_mean_or_val + 1e-4)
     unselected_estimator = RegressionBNN(config).to(device)
     obs_unselected_estimator_train_dataset, obs_unselected_estimator_test_dataset, obs_unselected_estimator_val_dataset \
         = build_estimator_dataset(obs_t_train, obs_t_test, obs_t_val,
