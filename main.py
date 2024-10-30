@@ -208,7 +208,7 @@ def train_nn_generator(model, estimator, dataloader, val_dataloader):
                 y_minus, _, _ = estimator(t, torch.cat((torch.rand(x.size()).to(device), z), 1))
                 loss_y = torch.mean(mse_func(y.float(), y_hat))
                 loss_ipm, _, _ = wasserstein_func(t_rep, c_rep)
-                loss_e = loss_y + config.get('ipm_weight') * loss_ipm + torch.mean(
+                loss_e = loss_y + config.get('ipm_weight') * torch.abs(loss_ipm) + torch.mean(
                     mse_func(y.float(), y_minus))
                 opt_e.zero_grad()
                 loss_e.backward()
@@ -262,7 +262,7 @@ def train_nn_generator(model, estimator, dataloader, val_dataloader):
                     y_minus, _, _ = estimator(t, torch.cat((torch.rand(x.size()).to(device), z), 1))
                     loss_y = torch.mean(mse_func(y.float(), y_hat))
                     loss_ipm, _, _ = wasserstein_func(t_rep, c_rep)
-                    loss_e = loss_y + config.get('ipm_weight') * loss_ipm + torch.mean(
+                    loss_e = loss_y + config.get('ipm_weight') * torch.abs(loss_ipm) + torch.mean(
                         mse_func(y.float(), y_minus))
                     z_hat = selection_model(torch.cat((x, t, y), 1))
                     loss_e_sum += loss_e
@@ -556,7 +556,7 @@ def train_estimator_bnn(estimator, train_dataloader, val_dataloader):
             y_pre, t_rep, c_rep = estimator(t, x)
             loss1 = regression_loss_func(y_pre.to(torch.float32), ground_truth.to(torch.float32))
             loss2, _, _ = wasserstein_func(t_rep, c_rep)
-            loss = loss1 + ipm_weight * loss2
+            loss = loss1 + ipm_weight * torch.abs(loss2)
             loss_sum += loss
             optimizer.zero_grad()
             loss.backward()
